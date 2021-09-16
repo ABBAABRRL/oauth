@@ -31,12 +31,10 @@ public class TestController {
     private final String dbUser="Admin";
     private final String dbPassWord="123";
     private final String authorization_code="5246";
-    private final String token="TOKEN";
     private static RSAPublicKey rsaPublicKey ;
     private static RSAPrivateKey rsaPrivateKey ;
     private  String client_id;
     private  final String client_password="IamClient";
-    private static final Key HASH_SALT = MacProvider.generateKey();
 
     @ApiOperation(value = "1.資源擁有者點擊client端的導向授權方按鈕")
     @GetMapping(value = "/1")
@@ -85,7 +83,6 @@ public class TestController {
     @ApiOperation(value = "3.client打授權碼給授權伺服器，以驗證授權碼取回TOKEN")
     @GetMapping(value = "/3")
     public ResponseDTO<Map<String,String>> thrStep(String input_client_id,String client_password,String authorization_code) {
-        //        client打第三方api
 
         String[] data =authorization_code.split("&");
         String code=data[0];
@@ -100,8 +97,6 @@ public class TestController {
         }else {
             System.out.println("119");
         }
-        //帳號ok 導回  redirect_uri+授權碼
-        //拿授權碼驗證 ->返回TOKEN ->TOKEN拿資源->返回資源
         Map<String,String> map=new HashMap<>();
         map.put("token",generateToken(demand));
         return ResponseDTO.<Map<String,String>>createSuccessBuilder()
@@ -113,7 +108,6 @@ public class TestController {
     @ApiOperation(value = "4.client拿TOKEN跟資源伺服器要資源")
     @GetMapping(value = "/4")
     public ResponseDTO<Map<String,String>> fourStep(String token) {
-        //        client打第三方api
         Claims body=getClaim(token).getBody();
 
         System.out.println(body.get("demand"));
@@ -122,8 +116,6 @@ public class TestController {
         map.put("姓名","Barry");
         map.put("電話","0912345678");
         map.put("住址","新竹市東區公道五路二段158號");
-        //帳號ok 導回  redirect_uri+授權碼
-        //拿授權碼驗證 ->返回TOKEN ->TOKEN拿資源->返回資源
         return ResponseDTO.<Map<String,String>>createSuccessBuilder()
             .setData(map)
             .build();
