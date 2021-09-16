@@ -27,7 +27,6 @@ import java.util.Scanner;
 @Api(tags = "test")
 @RequiredArgsConstructor
 public class TestController {
-    private static final String TOKEN_PREFIX = "Bearer"; // Token前缀
 
     private final String dbUser="Admin";
     private final String dbPassWord="123";
