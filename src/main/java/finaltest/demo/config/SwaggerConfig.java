@@ -37,8 +37,8 @@ public class SwaggerConfig {
 
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-            .title("測試豪豬")
-            .description("測試豪豬")
+            .title("Oauth2.0授權碼模式")
+            .description("Oauth2.0授權碼模式")
             .termsOfServiceUrl("")
             .version("1.0")
             .build();
