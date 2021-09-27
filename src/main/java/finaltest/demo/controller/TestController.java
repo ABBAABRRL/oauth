@@ -1,9 +1,6 @@
 package finaltest.demo.controller;
 
-import finaltest.demo.dto.AuthSaveClientInfoDTO;
-import finaltest.demo.dto.AuthServerDTO;
-import finaltest.demo.dto.ResponseDTO;
-import finaltest.demo.dto.UserInfoDTO;
+import finaltest.demo.dto.*;
 import finaltest.demo.utils.TimeUtils;
 import io.jsonwebtoken.*;
 import io.swagger.annotations.Api;
@@ -29,11 +26,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TestController {
 
-    private static Map<String, AuthServerDTO> mapDTO = new HashMap<>();
+    private static Map<String, AuthServerDTO> authRecordMap = new HashMap<>();
     private static RSAPublicKey rsaPublicKey;
     private static RSAPrivateKey rsaPrivateKey;
-    private static AuthSaveClientInfoDTO authSaveClientInfoDTO =new AuthSaveClientInfoDTO();
-
+    private static AuthSaveClientInfoDTO asClientInfo =new AuthSaveClientInfoDTO();
+    private static AuthServerUserInfoDTO asUserInfo = new AuthServerUserInfoDTO();
+    private static String client_password;
     @ApiOperation(value = "1.資源擁有者點擊client端的導向授權方按鈕")
     @GetMapping(value = "/1")
     public ResponseDTO<String> firstStep() {
@@ -54,7 +52,7 @@ public class TestController {
         if("code".equals(response_type)){
             System.out.println("授權碼模式");
         }
-        Map<String, String> typeMap = new HashMap<>();
+        Map<String, String> typeMap = new HashMap<>();//顯示訊息用 不必要的
         Map<String, String> returnMap = new HashMap<>();
         typeMap.put("info", "個人資料");
         typeMap.put("email", "信箱地址");
@@ -64,18 +62,20 @@ public class TestController {
         String user = keyIn.next();
         String password = keyIn.next();
 
-        UserInfoDTO userDTO = new UserInfoDTO();
 
-        if (null != userDTO.getUser().get(user) && userDTO.getUser().get(user).equals(password)) {//登入成功
+
+        if (null != asUserInfo.getUserInfo().get(user) &&
+            asUserInfo.getUserInfo().get(user).get("password").equals(password)) {//登入成功
+
             System.out.println("登入成功");
-
             System.out.println("是否同意向" + client_id + "提供" + typeMap.get(scope) + "資訊。");
             String agreen = keyIn.next();
+
             if ("yes".equals(agreen)) {
                 String authorization_code=UUID.randomUUID().toString();
                 returnMap.put("授權碼取得，將導回右側網址",
                     redirect_uri + "?authorization_code=" + authorization_code);//帳號驗證完 導回  redirect_uri+授權碼
-                mapDTO.put(client_id, new AuthServerDTO(client_id, scope, authorization_code));//授權伺服器儲存此次紀錄
+                authRecordMap.put(client_id, new AuthServerDTO(client_id, scope, authorization_code,user));//授權伺服器儲存此次紀錄
                 System.out.println("授權碼發放成功，回到swagger進行操作");
             }else {
                 returnMap.put("授權失敗", "請重新嘗試");
@@ -89,15 +89,15 @@ public class TestController {
             .build();
     }
 
-    @ApiOperation(value = "client的callbackApi")
+    @ApiOperation(value = "client的callbackApi") //barrychen的callbackApi
     @GetMapping(value = "/callback")
     public ResponseDTO<String> thrSteps(String authorization_code) {
         String authUrl = "http://127.0.0.1:8080/test/3";
         String client_id = "barrychen";
-
+        String password=client_password;
         return ResponseDTO.<String>createSuccessBuilder()
             .setData(
-                authUrl + "?client_id=" + client_id + "&client_password=&authorization_code=" + authorization_code)
+                authUrl + "?client_id=" + client_id + "&client_password="+password+"&authorization_code=" + authorization_code)
             .build();
     }
 
@@ -108,14 +108,21 @@ public class TestController {
         String client_password,
         String authorization_code) {
         Map<String, String> map = new HashMap<>();
-
-        if (null != mapDTO.get(client_id)//確認授權碼有沒有發給這個client過
-            && null != authSaveClientInfoDTO.getClient().get(client_id)//確認client有註冊過
-            && authSaveClientInfoDTO.getClient().get(client_id).equals(client_password)//確認client本人
-            && mapDTO.get(client_id).getAuthorization_code().equals(authorization_code))//驗證授權碼
+        if (null != authRecordMap.get(client_id)//確認授權碼有沒有發給這個client過
+            && null != asClientInfo.getClient().get(client_id)//確認client有註冊過
+            && asClientInfo.getClient().get(client_id).equals(client_password)//確認client本人
+            && authRecordMap.get(client_id).getAuthorization_code().equals(authorization_code))//驗證授權碼
         {
             //授權碼驗證完成取回TOKEN
-            map.put("token", generateToken(mapDTO.get(client_id).getScope()));
+            map.put("token",
+                generateToken(authRecordMap.get(client_id).getScope(),//將所需資訊塞進token給予資源伺服器
+                    authRecordMap.get(client_id).getUser(),
+                   asUserInfo.getUserInfo().get(authRecordMap.get(client_id).getUser()).get("uid")
+                    ));
+
+            map.put("testToken", generateToken("phone",
+                "jerry",
+                "u1876455"));
         } else {
             map.put("授權碼錯誤", "請聯絡人員了解情形");
         }
@@ -130,23 +137,30 @@ public class TestController {
     public ResponseDTO<Map<String, String>> fourStep(String token) {
         String scope="";
         Map<String, String> map = new HashMap<>();
+        Map<String, String> infoMap;
+        ResourceServerUserInfo info=new ResourceServerUserInfo();
         try {
             Claims body = getClaim(token).getBody();
-             scope= body.get("demand").toString();
+             scope= body.get("demand").toString();//由TOKEN內取得要拿哪個範圍資料
+            infoMap= info.getUser().get(body.get("uid").toString());//由TOKEN內取得要拿誰的資料
         }catch (Exception e){
             map.put("授權憑證錯誤","請聯絡人員了解情形");
+            return ResponseDTO.<Map<String, String>>createSuccessBuilder()
+                .setData(map)
+                .build();
         }
+
         if("info".equals(scope)) {
-            map.put("姓名", "Barry");
-            map.put("電話", "0912345678");
-            map.put("住址", "新竹市東區公道五路二段158號");
-            map.put("信箱地址", "barry.chen@tpisoftware.com");
+            map.put("姓名", infoMap.get("姓名"));
+            map.put("電話", infoMap.get("電話"));
+            map.put("住址", infoMap.get("住址"));
+            map.put("信箱地址", infoMap.get("信箱地址"));
         }
         if("phone".equals(scope)) {
-            map.put("電話", "0912345678");
+            map.put("電話", infoMap.get("電話"));
         }
         if("email".equals(scope)) {
-            map.put("信箱地址", "barry.chen@tpisoftware.com");
+            map.put("信箱地址", infoMap.get("信箱地址"));
         }
         return ResponseDTO.<Map<String, String>>createSuccessBuilder()
             .setData(map)
@@ -187,23 +201,25 @@ public class TestController {
                 sb.append(((char) ((Math.random() * 26) + 97)));
             }
         }
-        authSaveClientInfoDTO.getClient().put(client_id,sb.toString());//驗證伺服器存Client帳密
+        asClientInfo.getClient().put(client_id,sb.toString());//驗證伺服器存Client帳密
         Map<String, String> map = new HashMap<>();
         map.put("client_password", sb.toString());
+        client_password=sb.toString();
         return ResponseDTO.<Map<String, String>>createSuccessBuilder()
             .setData(map)
             .build();
     }
 
     // JWT產生方法
-    public static String generateToken(String demand) {
+    public static String generateToken(String demand,String userName,String uid) {
         // 生成JWT
 
         return Jwts.builder()
+            .setHeaderParam("typ","JWT")
             // 在Payload放入自定義的聲明方法如下
             .claim("demand", demand)
-            .claim("userName", "barry")
-            .claim("uid", "u1548327")
+            .claim("userName", userName)
+            .claim("uid", uid)
             // 在Payload放入exp保留聲明
             .setExpiration(TimeUtils.toDate(OffsetDateTime.now().plusMinutes(30)))
             .signWith(SignatureAlgorithm.RS256, rsaPrivateKey).compact();
