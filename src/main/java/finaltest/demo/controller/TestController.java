@@ -116,9 +116,9 @@ public class TestController {
                     asUserInfo.getUserInfo().get(authRecordMap.get(client_id).getUser()).get("uid")
                 )));
 
-            map.put("testToken", generateToken(new TokenMessageDTO("phone",
-                "jerry",
-                "u1876455")));
+//            map.put("testToken", generateToken(new TokenMessageDTO("phone",
+//                "jerry",
+//                "u1876455")));
         } else {
             map.put("授權碼錯誤", "請聯絡人員了解情形");
         }
@@ -169,7 +169,7 @@ public class TestController {
 
     @ApiOperation(value = "client的callbackApi") //barrychen的callbackApi
     @GetMapping(value = "/callback")
-    public ResponseDTO<String> thrSteps(String authorization_code) {
+    public ResponseDTO<String> callback(String authorization_code) {
         String authUrl = "http://127.0.0.1:8080/test/3";
         String client_id = "barrychen";
         String password = client_password;
