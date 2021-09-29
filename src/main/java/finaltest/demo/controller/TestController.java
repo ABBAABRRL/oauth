@@ -34,8 +34,34 @@ public class TestController {
     private static AuthServerUserInfoDTO asUserInfo = new AuthServerUserInfoDTO();
     private static String client_password;
 
+    // JWT產生方法
+    public static String generateToken(
+        TokenMessageDTO dto
+    ) {
+        // 生成JWT
+        return Jwts.builder()
+            .setHeaderParam("typ", "JWT")
+            // 在Payload放入自定義的聲明方法如下
+            .claim("info", dto)
+            // 在Payload放入exp保留聲明
+            .setExpiration(TimeUtils.toDate(OffsetDateTime.now().plusMinutes(3)))
+            .signWith(SignatureAlgorithm.RS256, authRsaPrivateKey).compact();
+    }
 
-
+    //驗證JWT Token並取回jwt
+    public static Jws<Claims> getClaim(String token) {
+        Jws<Claims> jwt;
+        try {
+            jwt = Jwts.parser()
+                .setSigningKey(authRsaPublicKey)
+                .parseClaimsJws(token);
+        } catch (SignatureException e) {
+            throw new RuntimeException("授權憑證錯誤");
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("授權憑證過期，請重新申請");
+        }
+        return jwt;
+    }
 
     @ApiOperation(value = "1.資源擁有者點擊client端的導向授權方按鈕")
     @GetMapping(value = "/1")
@@ -106,7 +132,7 @@ public class TestController {
         String client_password,
         String authorization_code) {
         Map<String, String> map = new HashMap<>();
-        if ( null != asClientInfo.getClient().get(client_id)//確認client有註冊過
+        if (null != asClientInfo.getClient().get(client_id)//確認client有註冊過
             && asClientInfo.getClient().get(client_id).equals(client_password)//確認client本人
             && null != authRecordMap.get(client_id)
             && authRecordMap.get(client_id).getAuthorization_code().equals(authorization_code))//驗證授權碼
@@ -214,33 +240,6 @@ public class TestController {
         return ResponseDTO.<Map<String, String>>createSuccessBuilder()
             .setData(map)
             .build();
-    }
-    // JWT產生方法
-    public static String generateToken(
-        TokenMessageDTO dto
-    ) {
-        // 生成JWT
-        return Jwts.builder()
-            .setHeaderParam("typ", "JWT")
-            // 在Payload放入自定義的聲明方法如下
-            .claim("info", dto)
-            // 在Payload放入exp保留聲明
-            .setExpiration(TimeUtils.toDate(OffsetDateTime.now().plusMinutes(3)))
-            .signWith(SignatureAlgorithm.RS256, authRsaPrivateKey).compact();
-    }
-    //驗證JWT Token並取回jwt
-    public static Jws<Claims> getClaim(String token) {
-        Jws<Claims> jwt;
-        try {
-            jwt = Jwts.parser()
-                .setSigningKey(authRsaPublicKey)
-                .parseClaimsJws(token);
-        } catch (SignatureException e) {
-            throw new RuntimeException("授權憑證錯誤");
-        } catch (ExpiredJwtException e) {
-            throw new RuntimeException("授權憑證過期，請重新申請");
-        }
-        return jwt;
     }
 
 }
