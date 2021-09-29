@@ -6,6 +6,7 @@ import io.jsonwebtoken.SignatureException;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,47 +22,49 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/jwt")
-@Api(tags = "jwt")
+@RequestMapping("/Sign")
+@Api(tags = "Sign")
 @RequiredArgsConstructor
-public class JwtTestController {
+public class SignTestController {
     private static RSAPublicKey RsaPublicKey;
     private static RSAPrivateKey RsaPrivateKey;
 
-    @ApiOperation(value = "jwtTest")
-    @GetMapping(value = "/jwtTest")
-    public static void jwtTest(){
+    @ApiOperation(value = "signTest")
+    @GetMapping(value = "/signTest")
+    public static void signTest(){
         KeyPairGenerator resourceKeyPairGenerator = null;
         try {
             resourceKeyPairGenerator = KeyPairGenerator.getInstance("RSA"); //NoSuchAlgorithmException 發生狀況大多為JDK版本問題
         } catch (Exception e) {
             e.printStackTrace();
         }
-        resourceKeyPairGenerator.initialize(2048); //資源端初始化
+        resourceKeyPairGenerator.initialize(2048); //初始化設bits大小
         KeyPair resourceKeyPair = resourceKeyPairGenerator.generateKeyPair();
-        RsaPublicKey = (RSAPublicKey) resourceKeyPair.getPublic();//給驗證端
-        RsaPrivateKey = (RSAPrivateKey) resourceKeyPair.getPrivate();//資源端留著
-        String signStr="";
-        AuthServerUserInfoDTO dto = new AuthServerUserInfoDTO();
+        RsaPublicKey = (RSAPublicKey) resourceKeyPair.getPublic();
+        RsaPrivateKey = (RSAPrivateKey) resourceKeyPair.getPrivate();
+
+        String json=JsonUtils.toJsonString(new AuthServerUserInfoDTO());//資料轉json格式
         //簽名
         try {
             Signature sign = Signature.getInstance("SHA256withRSA");
             sign.initSign(RsaPrivateKey);
-            sign.update(JsonUtils.toJsonString(dto).getBytes(StandardCharsets.UTF_8));
-            byte[] signature=sign.sign();
-            signStr= Base64.getEncoder().encodeToString(signature);//簽名
-            check(dto,signStr);//驗證資料與簽名
+            sign.update(json.getBytes(StandardCharsets.UTF_8));//()內資料先序列化
+            byte[] signature=sign.sign();//簽名
+            String signStr= Base64.getEncoder().encodeToString(signature);// Base64 encode
+            check(json,signStr);//驗證資料與簽名
         }catch(Exception e){
             System.out.println("加密失敗");
         }
 
     }
-    public static void check(Object obj,String signStr){
+    public static void check(String json,String signStr){
         try {
             Signature sign = Signature.getInstance("SHA256withRSA");
             sign.initVerify(RsaPublicKey);
-            sign.update(JsonUtils.toJsonString(obj).getBytes(StandardCharsets.UTF_8));
-            if(!sign.verify(Base64.getDecoder().decode(signStr))){//驗證送來的資料"obj"與送來的簽名"singStr"解密後內容是否相同
+            sign.update(json.getBytes(StandardCharsets.UTF_8));//()內資料先序列化
+            if(sign.verify(Base64.getDecoder().decode(signStr))){//驗證送來的資料"obj"與送來的簽名"singStr"Decode後 內容是否相同
+                System.out.println("驗證成功");
+            }else {
                 System.out.println("驗證失敗");
             }
         }catch (SignatureException e){

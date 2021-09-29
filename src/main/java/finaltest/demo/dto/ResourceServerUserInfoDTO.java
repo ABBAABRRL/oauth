@@ -8,12 +8,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Data
-public class ResourceServerUserInfo {
+public class ResourceServerUserInfoDTO {
     @JsonProperty(value = "user")
     @ApiModelProperty(value = "帳號")
     private Map<String,Map<String,String>> user;
 
-    public ResourceServerUserInfo(){
+    public ResourceServerUserInfoDTO(){
 
         Map<String,Map<String,String>>  bigMap=new HashMap<>();
 

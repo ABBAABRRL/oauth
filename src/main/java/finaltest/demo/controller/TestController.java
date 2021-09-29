@@ -28,48 +28,21 @@ import java.util.UUID;
 public class TestController {
 
     private static Map<String, AuthServerMsgDTO> authRecordMap = new HashMap<>();
-
     private static RSAPublicKey authRsaPublicKey;
     private static RSAPrivateKey authRsaPrivateKey;
     private static AuthSaveClientInfoDTO asClientInfo = new AuthSaveClientInfoDTO();
     private static AuthServerUserInfoDTO asUserInfo = new AuthServerUserInfoDTO();
     private static String client_password;
 
-    // JWT產生方法
-    public static String generateToken(
-        TokenMessageDTO dto
-    ) {
-        // 生成JWT
-        return Jwts.builder()
-            .setHeaderParam("typ", "JWT")
-            // 在Payload放入自定義的聲明方法如下
-            .claim("info", dto)
-            // 在Payload放入exp保留聲明
-            .setExpiration(TimeUtils.toDate(OffsetDateTime.now().plusMinutes(30)))
-            .signWith(SignatureAlgorithm.RS256, authRsaPrivateKey).compact();
-    }
 
-    public static Jws<Claims> getClaim(String token) {//驗證
-        Jws<Claims> jwt;
-        try {
-            jwt = Jwts.parser()
-                .setSigningKey(authRsaPublicKey)
-                .parseClaimsJws(token);
-        } catch (SignatureException e) {
-            throw new RuntimeException("授權憑證錯誤");
-        } catch (ExpiredJwtException e) {
-            throw new RuntimeException("授權憑證過期，請重新申請");
-        }
-        return jwt;
-    }
+
 
     @ApiOperation(value = "1.資源擁有者點擊client端的導向授權方按鈕")
     @GetMapping(value = "/1")
-    public ResponseDTO<String> firstStep() {
+    public ResponseDTO<String> firstStep(String client_id) {
         String authUrl = "http://127.0.0.1:8080/test/2";
         String redirect_uri = "http://127.0.0.1:8080/test/callback";
 
-        String client_id = "barrychen";
         return ResponseDTO.<String>createSuccessBuilder()
             .setData(
                 authUrl + "?client_id=" + client_id + "&redirect_uri=" + redirect_uri + "&response_type=code&scope=info")
@@ -83,6 +56,7 @@ public class TestController {
         String redirect_uri,
         String response_type,
         String scope) {
+
         if ("code".equals(response_type)) {
             System.out.println("授權碼模式");
         }
@@ -101,18 +75,21 @@ public class TestController {
 
             System.out.println("登入成功");
             System.out.println("是否同意向" + client_id + "提供" + typeMap.get(scope) + "資訊。");
-            String agreen = keyIn.next();
+            String agree = keyIn.next();
 
-            if ("yes".equals(agreen)) {
+            if ("yes".equals(agree)) {
+
                 String authorization_code = UUID.randomUUID().toString();
                 returnMap.put("授權碼取得，將導回右側網址",
-                    redirect_uri + "?authorization_code=" + authorization_code);//帳號驗證完 導回  redirect_uri+授權碼
+                    redirect_uri + "?authorization_code=" + authorization_code);//帳號驗證完 導回  redirect_uri+附上授權碼
                 authRecordMap
                     .put(client_id, new AuthServerMsgDTO(client_id, scope, authorization_code, user));//授權伺服器儲存此次紀錄
+
                 System.out.println("授權碼發放成功，回到swagger進行操作");
             } else {
                 returnMap.put("授權失敗", "請重新嘗試");
             }
+
         } else {
             returnMap.put("授權失敗", "請重新嘗試");
         }
@@ -129,9 +106,9 @@ public class TestController {
         String client_password,
         String authorization_code) {
         Map<String, String> map = new HashMap<>();
-        if (null != authRecordMap.get(client_id)//確認授權碼有沒有發給這個client過
-            && null != asClientInfo.getClient().get(client_id)//確認client有註冊過
+        if ( null != asClientInfo.getClient().get(client_id)//確認client有註冊過
             && asClientInfo.getClient().get(client_id).equals(client_password)//確認client本人
+            && null != authRecordMap.get(client_id)
             && authRecordMap.get(client_id).getAuthorization_code().equals(authorization_code))//驗證授權碼
         {
             //授權碼驗證完成取回TOKEN
@@ -156,7 +133,7 @@ public class TestController {
         String scope;
         Map<String, String> map = new HashMap<>();
         Map<String, String> infoMap;
-        ResourceServerUserInfo info = new ResourceServerUserInfo();
+        ResourceServerUserInfoDTO info = new ResourceServerUserInfoDTO();
         try {
             Claims body = getClaim(token).getBody();//驗證TOKEN
             TokenMessageDTO dto = JsonUtils.toObj(body.get("info"), TokenMessageDTO.class);//訊息轉回物件操作
@@ -185,11 +162,11 @@ public class TestController {
             .build();
     }
 
-    @ApiOperation(value = "client的callbackApi") //barrychen的callbackApi
+    @ApiOperation(value = "client的callbackApi")
     @GetMapping(value = "/callback")
     public ResponseDTO<String> callback(String authorization_code) {
         String authUrl = "http://127.0.0.1:8080/test/3";
-        String client_id = "barrychen";
+        String client_id = "barrychen";//需更改為註冊的client
         String password = client_password;
         return ResponseDTO.<String>createSuccessBuilder()
             .setData(
@@ -237,6 +214,33 @@ public class TestController {
         return ResponseDTO.<Map<String, String>>createSuccessBuilder()
             .setData(map)
             .build();
+    }
+    // JWT產生方法
+    public static String generateToken(
+        TokenMessageDTO dto
+    ) {
+        // 生成JWT
+        return Jwts.builder()
+            .setHeaderParam("typ", "JWT")
+            // 在Payload放入自定義的聲明方法如下
+            .claim("info", dto)
+            // 在Payload放入exp保留聲明
+            .setExpiration(TimeUtils.toDate(OffsetDateTime.now().plusMinutes(3)))
+            .signWith(SignatureAlgorithm.RS256, authRsaPrivateKey).compact();
+    }
+    //驗證JWT Token並取回jwt
+    public static Jws<Claims> getClaim(String token) {
+        Jws<Claims> jwt;
+        try {
+            jwt = Jwts.parser()
+                .setSigningKey(authRsaPublicKey)
+                .parseClaimsJws(token);
+        } catch (SignatureException e) {
+            throw new RuntimeException("授權憑證錯誤");
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("授權憑證過期，請重新申請");
+        }
+        return jwt;
     }
 
 }
