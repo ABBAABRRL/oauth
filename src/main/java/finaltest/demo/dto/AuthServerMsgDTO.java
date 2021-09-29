@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-public class AuthServerDTO {
+public class AuthServerMsgDTO {
     @JsonProperty(value = "authorization_code")
     @ApiModelProperty(value = "授權碼")
     private String authorization_code;
@@ -21,7 +21,7 @@ public class AuthServerDTO {
     @JsonProperty(value = "user")
     @ApiModelProperty(value = "持有者id")
     private String user;
-    public AuthServerDTO( String client_id,String scope,String authorization_code,String user){
+    public AuthServerMsgDTO( String client_id,String scope,String authorization_code,String user){
         this.authorization_code=authorization_code;
         this.client_id=client_id;
         this.scope=scope;
